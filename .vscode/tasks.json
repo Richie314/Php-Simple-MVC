@@ -1,0 +1,46 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start container (Debugging)",
+      "type": "shell",
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        ".vscode/docker-compose.yml",
+        "up",
+        "--build",
+        "-d"
+      ],
+      "problemMatcher": [],
+      "presentation": { "reveal": "always" }
+    },
+    {
+      "label": "Stop container",
+      "type": "shell",
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        ".vscode/docker-compose.yml",
+        "down"
+      ],
+      "problemMatcher": [],
+      "presentation": { "reveal": "always" }
+    },
+    {
+      "label": "Wait for container",
+      "type": "shell",
+      "command": "docker-compose -f .vscode/docker-compose.yml --profile \"*\" wait apdemop",
+      "problemMatcher": [],
+      "presentation": { "reveal": "never" }
+    },
+    {
+      "label": "Debug container and wait",
+      "dependsOn": [
+        "Start container (Development)",
+        "Wait for Container"
+      ],
+      "dependsOrder": "sequence"
+    }
+  ]
+}

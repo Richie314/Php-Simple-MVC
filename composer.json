@@ -1,0 +1,33 @@
+{
+    "name": "richie314/simple-mvc",
+    "description": "Simple MVC php library",
+    "type": "library",
+    "license": "proprietary",
+    "autoload": {
+        "psr-4": {
+            "Richie314\\SimpleMvc\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Richie314\\SimpleMvc\\Demo\\": "demo/",
+            "Richie314\\SimpleMvc\\Tests\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Riccardo Ciucci",
+            "email": "riccardo@ciucci.dev"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {},
+    
+    "archive": {
+        "exclude": [
+            "/demo",
+            "/tests",
+            ".vscode"
+        ]
+    }
+}

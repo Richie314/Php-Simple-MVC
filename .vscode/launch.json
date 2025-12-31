@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Demo",
+      "type": "php",
+      "request": "launch",
+      "port": 9003,
+      "pathMappings": {
+        "/var/www/html/src": "${workspaceFolder}/src",
+        "/var/www/html/demo": "${workspaceFolder}/demo",
+        "/var/www/html/composer.json": "${workspaceFolder}/composer.json"
+      },
+      "log": false,
+      "preLaunchTask": "Start container (Debugging)",
+      "postDebugTask": "Stop container"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+name: simple-mvc
+
+services:
+  demo:
+    build:  
+      context: ../
+      dockerfile: demo/Apache.dockerfile
+    
+    container_name: demo
+    restart: always
+    ports:
+      - 80:80
+      - 9003:9003
+    volumes:
+       - ../src:/var/www/html/src:ro
+       - ../demo:/var/www/html/demo
+    networks:
+      - mariadb_network
+    depends_on:
+      - mariadb
+  
+  mariadb:
+    image: mariadb:12
+    container_name: mariadb
+    restart: always
+    environment:
+      MYSQL_DATABASE: demo
+      MYSQL_ROOT_PASSWORD: root
+      TZ: Europe/Rome
+    networks:
+      - mariadb_network
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin:apache
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+      PMA_SSL_VERIFY: 0
+      TZ: Europe/Rome
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - mariadb_network
+    ports:
+      - 9000:80
+    volumes:
+      - pma_sessions:/sessions
+
+networks:
+  mariadb_network: 
+    driver: bridge
+
+volumes:
+  mariadb_data:
+  pma_sessions:
+  
