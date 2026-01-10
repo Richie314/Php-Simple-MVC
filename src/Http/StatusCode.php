@@ -28,4 +28,17 @@ enum StatusCode : int
     case NotImplemented = 501;
     case BadGateway = 502;
     case ServiceUnavaible = 503;   
+
+    /**
+     * Checks if the status code is in the 4xx or 5xx range
+     * @param StatusCode|int $statusCode The number to check
+     * @return bool true if the number is in the 4xx or 5xx range
+     */
+    public static function IsError(StatusCode|int $statusCode): bool
+    {
+        if ($statusCode instanceof StatusCode)
+            $statusCode = $statusCode->value;
+
+        return $statusCode >= 400 && $statusCode < 600;
+    }
 }
