@@ -10,7 +10,6 @@ services:
     restart: always
     ports:
       - 80:80
-      - 9003:9003
     volumes:
        - ../src:/var/www/html/src:ro
        - ../demo:/var/www/html/demo

@@ -42,6 +42,7 @@ class Controller {
      * @var string
      */
     private string $ApplicationInstallationPath;
+
     private function ViewPossibleFileNames(
         string $viewName, 
         bool $checkShared = true,
@@ -86,10 +87,30 @@ class Controller {
     protected \mysqli|false $DB = false;
 
 
+    /**
+     * The current user, if logged in
+     * @var User|null
+     */
     protected ?User $User;
 
     protected Method $RequestMethod;
 
+    /**
+     * Associative array of variables that will be passed to Render()
+     * @var array strings as keys
+     */
+    protected array $ViewBag = [];
+
+    /**
+     * Creates a Controller
+     * @param string $requestPath Path of the current request
+     * @param Method $requestMethod Method of the current request
+     * @param string $pathPrefix Path prefix of the application
+     * @param string|null $applicationInstallationPath Installation folder of the application
+     * @param User|null $user Current user, if present
+     * @param \mysqli|null $connection Database connection
+     * @param array $DefaultViewBag Predefined associative array, with string as keys of default variables that will be passed to Render()
+     */
     public function __construct(
         string $requestPath,
         Method $requestMethod,
@@ -99,6 +120,8 @@ class Controller {
 
         ?User $user = null,
         ?\mysqli $connection = null,
+
+        array $DefaultViewBag = [],
     ) {
         $this->RequestPath = $requestPath;
         $this->RequestMethod = $requestMethod;
@@ -108,6 +131,7 @@ class Controller {
         $this->ApplicationInstallationPath = empty($applicationInstallationPath) ? 
             $_SERVER['DOCUMENT_ROOT'] : 
             $applicationInstallationPath;
+
         while (str_ends_with(haystack: $this->ApplicationInstallationPath, needle: '/'))
             $this->ApplicationInstallationPath = substr(
                 string: $this->ApplicationInstallationPath, 
@@ -115,10 +139,17 @@ class Controller {
                 length: strlen(string: $this->ApplicationInstallationPath) - 1,
             );
 
-        if ($connection !== null) {
+        if ($connection !== null)
             $this->DB = $connection;
-        }
         $this->User = $user;
+
+        foreach ($DefaultViewBag as $key => $value)
+        {
+            if (!is_string(value: $key))
+                continue;
+
+            $this->ViewBag[$key] = $value;
+        }
     }
 
     /**
@@ -185,7 +216,7 @@ class Controller {
             http_response_code(response_code: $statusCode->value);
 
 
-        extract(array: array_merge($data, [
+        extract(array: array_merge($data, $this->ViewBag, [
             'title' => $title,
             'status_code' => $statusCode->value,
             'user' => $this->User,

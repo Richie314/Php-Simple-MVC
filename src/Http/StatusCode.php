@@ -41,4 +41,9 @@ enum StatusCode : int
 
         return $statusCode >= 400 && $statusCode < 600;
     }
+
+    public function __toString(): string
+    {
+        return (string)$this->value;
+    }
 }

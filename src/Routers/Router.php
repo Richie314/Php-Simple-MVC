@@ -12,6 +12,7 @@ class Router {
 
     private ?\mysqli $connection = null;
     private ?User $user = null;
+    private array $defaultViewBag = [];
     private array $routes = [];
 
     protected Method $RequestMethod;
@@ -43,14 +44,22 @@ class Router {
         string $pathPrefix = '',
         ?string $applicationInstallationPath = null,
     ) {
+        if (!array_key_exists(key: 'REQUEST_METHOD', array: $_SERVER))
+            throw new \BadMethodCallException(
+                message: 
+                    '$_SERVER["REQUEST_METHOD"] is missing. ' . 
+                    'This class can only be used inside HTTP requests'
+            );
+        
         $this->RequestMethod = Method::from(value: strtoupper(string: $_SERVER["REQUEST_METHOD"]));
 
         $this->PathPrefix = $pathPrefix;
         if (strlen(string: $pathPrefix) > 0 && !str_starts_with(needle: '/', haystack: $pathPrefix))
-        {
             throw new \InvalidArgumentException(
-                message: "A custom installation path is detected but does not start with '/'. Given: '$pathPrefix'");
-        }
+                message: 
+                    "A custom installation path is detected but does not start with '/'. " . 
+                    "Given: '$pathPrefix'"
+            );
 
         $this->ApplicationInstallationPath = $applicationInstallationPath;
     }
@@ -58,17 +67,17 @@ class Router {
     public function AddRouteAction(
         string $route, 
         string $controller, 
-        string $action
+        string $action,
     ): void {
         $this->routes[$this->PathPrefix . $route] = [
             'controller' => $controller, 
-            'action' => $action
+            'action' => $action,
         ];
     }
 
     public function AddController(
         string $controller,
-        string $route_base
+        string $route_base,
     ): void {
         $dummy_instance = new $controller(
             requestPath: '',
@@ -87,8 +96,7 @@ class Router {
         $methods = get_class_methods(object_or_class: $dummy_instance);
         foreach ($methods as $method)
         {
-            if (
-                str_starts_with(haystack: $method, needle: '_') || 
+            if (str_starts_with(haystack: $method, needle: '_') || 
                 str_starts_with(haystack: $method, needle: '#')
             ) {
                 continue;
@@ -209,5 +217,24 @@ class Router {
 
     public function SetUser(User $user): void {
         $this->user = $user;
+    }
+
+    public function SetDefaultVariable(string $key, mixed $value): void
+    {
+        if (strlen(string: $key) === 0)
+            return;
+
+        $this->defaultViewBag[$key] = $value;
+    }
+
+    public function ClearDefaultVariable(string $key): void
+    {
+        if (strlen(string: $key) === 0)
+            return;
+
+        if (!array_key_exists(key: $key, array: $this->defaultViewBag))
+            return;
+
+        unset($this->defaultViewBag[$key]);
     }
 }
