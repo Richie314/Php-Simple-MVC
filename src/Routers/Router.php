@@ -170,6 +170,8 @@ class Router {
 
             connection: $this->connection, 
             user: $this->user,
+
+            defaultViewBag: $this->defaultViewBag,
         );
 
         $method_attributes = \ReflectionMethod::createFromMethodName(method: "$controller::$action")
@@ -204,6 +206,8 @@ class Router {
 
                 pathPrefix: $this->PathPrefix,
                 applicationInstallationPath: $this->ApplicationInstallationPath,
+
+                defaultViewBag: $this->defaultViewBag,
             );
             return $error_controller->InternalErrorHandler(ex: $ex);
         }

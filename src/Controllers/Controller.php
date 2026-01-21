@@ -109,7 +109,7 @@ class Controller {
      * @param string|null $applicationInstallationPath Installation folder of the application
      * @param User|null $user Current user, if present
      * @param \mysqli|null $connection Database connection
-     * @param array $DefaultViewBag Predefined associative array, with string as keys of default variables that will be passed to Render()
+     * @param array $defaultViewBag Predefined associative array, with string as keys of default variables that will be passed to Render()
      */
     public function __construct(
         string $requestPath,
@@ -121,7 +121,7 @@ class Controller {
         ?User $user = null,
         ?\mysqli $connection = null,
 
-        array $DefaultViewBag = [],
+        array $defaultViewBag = [],
     ) {
         $this->RequestPath = $requestPath;
         $this->RequestMethod = $requestMethod;
@@ -143,7 +143,7 @@ class Controller {
             $this->DB = $connection;
         $this->User = $user;
 
-        foreach ($DefaultViewBag as $key => $value)
+        foreach ($defaultViewBag as $key => $value)
         {
             if (!is_string(value: $key))
                 continue;
