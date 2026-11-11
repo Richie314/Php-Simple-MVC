@@ -173,8 +173,11 @@ try {
 
     check(File::Size($root . '/missing') === '', 'Missing file size');
     file_put_contents($root . '/secret', '');
+    // Refresh metadata after rewriting a fixture; older PHP versions can retain its previous size.
+    clearstatcache();
     check(File::Size($root . '/secret') === '0 B', 'Empty file size');
     file_put_contents($root . '/secret', str_repeat('a', 1536));
+    clearstatcache();
     check(File::Exists($root . '/secret') && File::Size($root . '/secret') === '1 KB', 'Whole-unit file size');
     check(File::GetMimeType($root . '/secret') === 'text/plain', 'Text MIME detection');
     check(!File::Exists($root . '/Views'), 'Directories are not files');
