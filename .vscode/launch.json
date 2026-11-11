@@ -2,6 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Tests: Docker (PHP 8.3–8.5)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "docker compose -f .vscode/compose.tests.yml up --build --abort-on-container-failure --force-recreate",
+      "cwd": "${workspaceFolder}"
+    },
+    {
       "name": "Demo",
       "type": "php",
       "request": "launch",

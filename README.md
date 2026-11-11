@@ -1,8 +1,9 @@
 # A minimal Model-View-Control library for PHP
 
-[![PHP 8.2 or newer](https://img.shields.io/badge/PHP-%E2%89%A5%208.2-777BB4?logo=php&logoColor=white)](composer.json)
+[![PHP 8.3 or newer](https://img.shields.io/badge/PHP-%E2%89%A5%208.3-777BB4?logo=php&logoColor=white)](composer.json)
 [![Packagist version](https://img.shields.io/packagist/v/richie314/simple-mvc?logo=packagist&logoColor=white)](https://packagist.org/packages/richie314/simple-mvc)
 [![Latest GitHub release](https://img.shields.io/github/v/release/Richie314/Php-Simple-MVC?logo=github)](https://github.com/Richie314/Php-Simple-MVC/releases)
+[![Docker test status](https://github.com/Richie314/Php-Simple-MVC/actions/workflows/tests.yml/badge.svg)](https://github.com/Richie314/Php-Simple-MVC/actions/workflows/tests.yml)
 [![Test and release workflow status](https://github.com/Richie314/Php-Simple-MVC/actions/workflows/release.yml/badge.svg)](https://github.com/Richie314/Php-Simple-MVC/actions/workflows/release.yml)
 
 A small PHP MVC library with explicit routes, controllers, PHP views, action attributes, and utility helpers.
@@ -17,7 +18,7 @@ A small PHP MVC library with explicit routes, controllers, PHP views, action att
 composer require richie314/simple-mvc
 ```
 
-The library requires PHP 8.2 or newer, including sensitive-parameter redaction for password arguments. The optional database integration uses `mysqli`; MIME detection uses `fileinfo`.
+The library requires PHP 8.3 or newer, including sensitive-parameter redaction for password arguments. The optional database integration uses `mysqli`; MIME detection uses `fileinfo`.
 
 ## Quick start
 
@@ -167,21 +168,6 @@ Cookie::DeleteWithOptions('session_hint', path: '/myapp'); // match the original
 `SetWithOptions()` and `DeleteWithOptions()` preserve existing cookie method signatures, including subclass overrides. Cookie security options are opt-in: existing calls retain `secure: false`, `httpOnly: true`, and no SameSite setting. Cookies must be written before response output. Cookie reads reflect the incoming request, not cookies just written to response headers.
 
 `Security::GetIpAddress()` retains its existing proxy-header precedence. Enable `allowCloudlfare: true` only behind a trusted Cloudflare proxy. Forwarded headers must be sanitized by your infrastructure before using these addresses for access control.
-
-## Development checks
-
-From a checkout with Composer autoload files installed:
-
-```bash
-composer install
-php tests/run.php
-```
-
-The dependency-free regression suite checks routing, parameter binding, rendering, response statuses, error fallbacks, cookie helpers, and environment-file loading.
-
-The [Test and release workflow](https://github.com/Richie314/Php-Simple-MVC/actions/workflows/release.yml) runs manually from **Actions → Test and release → Run workflow**. Enter a new stable version such as `1.2.3`; it checks Composer metadata, PHP syntax, and the regression suite on **PHP 8.2–8.5** before publishing the tested commit as a tag and GitHub Release. The status badge above links to its run history.
-
-Existing route APIs and defaults are retained except the documented bug fixes; PATCH and OPTIONS request enum cases and common response codes are additive.
 
 ## Webserver configuration
 
