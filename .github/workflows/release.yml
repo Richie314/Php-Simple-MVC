@@ -1,0 +1,119 @@
+name: Test and release
+run-name: Release ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New stable version, for example 1.2.3 (optional v prefix)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Serialize releases so two manual runs cannot publish the same version concurrently.
+concurrency:
+  group: manual-release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    name: Validate version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Check out the selected commit and all tags
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate a new stable version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo '::error::Use a stable version such as 1.2.3 or v1.2.3, without leading zeroes.'
+            exit 1
+          fi
+          version="${VERSION#v}"
+          tag="v$version"
+          # Reject both spellings to avoid two tags representing the same Composer version.
+          for candidate in "$version" "$tag"; do
+            if git show-ref --verify --quiet "refs/tags/$candidate"; then
+              echo "::error::Tag $candidate already exists. Choose a new version."
+              exit 1
+            fi
+          done
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Test PHP ${{ matrix.php }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
+    steps:
+      - name: Check out the selected commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: fileinfo, mysqli
+          tools: composer:v2
+          coverage: none
+
+      - name: Validate Composer metadata
+        run: composer validate --no-check-publish
+
+      - name: Install dependencies and generate autoload files
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Check PHP syntax
+        run: |
+          while IFS= read -r -d '' file; do
+            php -l "$file"
+          done < <(find src demo tests -type f -name '*.php' -print0)
+
+      - name: Run regression tests
+        run: php -d error_reporting=E_ALL -d display_errors=1 tests/run.php
+
+  release:
+    name: Publish GitHub release
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Publish tag and release for the tested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          # Creating the ref is atomic: an existing tag fails instead of being reused or moved.
+          gh api --method POST "repos/$GH_REPO/git/refs" \
+            -f "ref=refs/tags/$RELEASE_TAG" \
+            -f "sha=$GITHUB_SHA"
+          gh release create "$RELEASE_TAG" \
+            --verify-tag \
+            --title "$RELEASE_TAG" \
+            --generate-notes

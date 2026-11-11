@@ -43,6 +43,13 @@ class Controller {
      */
     private string $ApplicationInstallationPath;
 
+    /**
+     * Build candidate view paths in lookup order.
+     *
+     * @param string $viewName View name relative to Views/, with an optional extension.
+     * @param bool $checkShared Whether to also search Views/Shared/.
+     * @return list<string> Candidate file paths; files may not exist.
+     */
     private function ViewPossibleFileNames(
         string $viewName, 
         bool $checkShared = true,
@@ -68,6 +75,12 @@ class Controller {
         return $paths;
     }
 
+    /**
+     * Find the first existing view file in Views/ or Views/Shared/.
+     *
+     * @param string $viewName View name, for example Home/index or Shared/Error.
+     * @return string|null Matching file path, or null when no candidate exists.
+     */
     protected function ViewFileName(string $viewName): ?string
     {
         $possible_paths = $this->ViewPossibleFileNames(viewName: $viewName);
@@ -79,6 +92,11 @@ class Controller {
         return null;
     }
 
+    /**
+     * Get the default layout path without checking whether it exists.
+     *
+     * @return string Path to Views/Shared/Layout.php.
+     */
     private function DefaultLayoutFileName(): string
     {
         return $this->ApplicationInstallationPath . '/Views/Shared/Layout.php';
@@ -102,14 +120,15 @@ class Controller {
     protected array $ViewBag = [];
 
     /**
-     * Creates a Controller
-     * @param string $requestPath Path of the current request
-     * @param Method $requestMethod Method of the current request
-     * @param string $pathPrefix Path prefix of the application
-     * @param string|null $applicationInstallationPath Installation folder of the application
-     * @param User|null $user Current user, if present
-     * @param \mysqli|null $connection Database connection
-     * @param array $defaultViewBag Predefined associative array, with string as keys of default variables that will be passed to Render()
+     * Initialize request context, optional services, and default view variables.
+     *
+     * @param string $requestPath Request URI, optionally including its query string.
+     * @param Method $requestMethod HTTP method of the current request.
+     * @param string $pathPrefix Application URL prefix, such as /myapp, or an empty string.
+     * @param string|null $applicationInstallationPath App directory; null or empty uses DOCUMENT_ROOT, then the working directory.
+     * @param User|null $user Authenticated application user, if available.
+     * @param \mysqli|null $connection Optional database connection, exposed as $this->DB.
+     * @param array<string, mixed> $defaultViewBag Default view variables; non-string keys are ignored.
      */
     public function __construct(
         string $requestPath,
@@ -129,7 +148,7 @@ class Controller {
         $this->PathPrefix = $pathPrefix;
 
         $this->ApplicationInstallationPath = empty($applicationInstallationPath) ? 
-            $_SERVER['DOCUMENT_ROOT'] : 
+            ($_SERVER['DOCUMENT_ROOT'] ?? getcwd()) :
             $applicationInstallationPath;
 
         while (str_ends_with(haystack: $this->ApplicationInstallationPath, needle: '/'))
@@ -153,9 +172,15 @@ class Controller {
     }
 
     /**
-     * If the user variable is not set interrupts the flow and redirects to login page
-     * @param bool $require_admin Require that the user is also an admin user. Calls NotAuthorized() if not
-     * @return User The loaded user
+     * Require an authenticated user, optionally with administrator privileges.
+     *
+     * Missing users receive a Redirect cookie and a login redirect. Failed admin
+     * checks send an unauthorized response. Either failure terminates the request.
+     *
+     * @param Controller $controller Controller whose request and user are checked.
+     * @param bool $requireAdmin Whether the current user must have Admin set to true.
+     * @param string $loginPath Login URL path relative to the application prefix.
+     * @return User Authenticated user when all checks pass.
      */
     public static function RequireLogin(
         self $controller, 
@@ -183,13 +208,19 @@ class Controller {
     }
 
     /**
-     * Renders a particular view.
-     * If the associated file in not found calls NotFound()
-     * @param string $view View file name
-     * @param array $data Variables to pass to the rendering php. Variables $user and $staff are automatically loaded
-     * @param string $title Title of the page, is passed also as $tile variable
-     * @param StatusCode|int $statusCode Override the status code of the response
-     * @return StatusCode The status code of the response
+     * Render a view inside a layout and send the response status.
+     *
+     * Default ViewBag entries override $data. Built-in variables override both:
+     * $title, $status_code, $user, $P, and the $RenderBody callable. Internal local
+     * variables are reserved. Templates are responsible for escaping output.
+     * @throws \ValueError If an integer status has no matching StatusCode case.
+     *
+     * @param string $view View name relative to Views/, for example Home/index.
+     * @param array<string, mixed> $data Variables made available to the layout and view body.
+     * @param string $title Page title, exposed as $title.
+     * @param StatusCode|int $statusCode Response status; integers must be supported enum values.
+     * @param string|null $cutomLayout Optional layout file path; spelling retained for compatibility.
+     * @return StatusCode Response status, or an error status if a view or layout is missing.
      */
     protected function Render(
         string $view, 
@@ -212,44 +243,83 @@ class Controller {
         if (!($statusCode instanceof StatusCode))
             $statusCode = StatusCode::from(value: $statusCode);
 
-        if ($statusCode !== StatusCode::Ok)
-            http_response_code(response_code: $statusCode->value);
+        http_response_code(response_code: $statusCode->value);
 
 
-        extract(array: array_merge($data, $this->ViewBag, [
+        $view_variables = array_merge($data, $this->ViewBag, [
             'title' => $title,
             'status_code' => $statusCode->value,
             'user' => $this->User,
             'P' => $this->PathPrefix,
-            'RenderBody' => function () use ($view_file): void {
-                require_once $view_file;
-            },
-        ]));
+        ]);
+        /**
+         * Render the selected view with its template variables.
+         *
+         * @return void
+         */
+        $view_variables['RenderBody'] = function () use ($view_file, $view_variables): void {
+            extract($view_variables, EXTR_SKIP);
+            require $view_file;
+        };
+        extract($view_variables, EXTR_SKIP);
 
-        require_once $layout_file_path;
+        require $layout_file_path;
         return $statusCode;
     }
 
     /**
-     * Redirectes to the specified url
-     * @param string $url
-     * @return StatusCode
+     * Send a Location header using the legacy redirect behavior.
+     *
+     * PHP normally emits 302 for this header, independently of the returned 301.
+     * Use RedirectWithStatus() to keep the HTTP status and return value aligned.
+     * This method does not terminate execution.
+     *
+     * @param string|null $url Destination URL; null or empty selects the application root.
+     * @return StatusCode Always MovedPermanently (301), preserving the legacy return value.
      */
     protected function Redirect(?string $url): StatusCode {
-        if (empty($url))
-        {
+        if (empty($url)) {
             $url = $this->PathPrefix . '/';
         }
+        // Preserve the original Location header behavior and return value.
         header(header: "Location: $url");
         return StatusCode::MovedPermanently;
     }
 
     /**
-     * Raw string as response
-     * @param string $type Mime type of the content
-     * @param string $content Actual content
-     * @param StatusCode|int $statusCode The status code to return (200 by default)
-     * @return StatusCode The status code of the response
+     * Send a Location header with an explicit response status.
+     *
+     * This method does not terminate execution.
+     * @throws \ValueError If an integer status has no matching StatusCode case.
+     *
+     * @param string|null $url Destination URL; null or empty selects the application root.
+     * @param StatusCode|int $statusCode Status to send, typically 301, 302, 303, 307, or 308.
+     * @return StatusCode Status sent with the Location header.
+     */
+    protected function RedirectWithStatus(
+        ?string $url,
+        StatusCode|int $statusCode = StatusCode::MovedPermanently,
+    ): StatusCode {
+        if (!($statusCode instanceof StatusCode))
+            $statusCode = StatusCode::from($statusCode);
+        if (empty($url))
+        {
+            $url = $this->PathPrefix . '/';
+        }
+        header(header: "Location: $url", response_code: $statusCode->value);
+        return $statusCode;
+    }
+
+    /**
+     * Write a response body with Content-Type, Content-Length, and status headers.
+     *
+     * Call before headers have been sent.
+     * @throws \ValueError If an integer status has no matching StatusCode case.
+     *
+     * @param string $type MIME type, optionally including a charset.
+     * @param string $content Response body, sent without escaping.
+     * @param StatusCode|int $statusCode Response status, defaulting to 200.
+     * @return StatusCode Status sent with the response.
      */
     protected function Content(
         string $type, 
@@ -260,8 +330,7 @@ class Controller {
         if (!($statusCode instanceof StatusCode))
             $statusCode = StatusCode::from(value: $statusCode);
 
-        if ($statusCode !== StatusCode::Ok)
-            http_response_code(response_code: $statusCode->value);
+        http_response_code(response_code: $statusCode->value);
 
         header(header: "Content-Type: $type");
         header(header: "Content-length: " . strlen(string: $content));
@@ -271,30 +340,57 @@ class Controller {
     }
 
     /**
-     * Render an object as json and print it to the stream
-     * @param mixed $object The object. Will be rendered via json_encode()
-     * @param StatusCode|int $statusCode The status code to return (200 by default)
-     * @return StatusCode The status code of the response (200)
+     * Encode a value as JSON and send an application/json response.
+     *
+     * @throws \JsonException If the value cannot be encoded.
+     * @throws \ValueError If an integer status has no matching StatusCode case.
+     *
+     * @param mixed $object Value to encode with json_encode().
+     * @param StatusCode|int $statusCode Response status, defaulting to 200.
+     * @return StatusCode Status sent with the response.
      */
     protected function Json(
         mixed $object, 
         StatusCode|int $statusCode = StatusCode::Ok,
     ): StatusCode
     {
+        return $this->JsonWithOptions($object, $statusCode);
+    }
+
+    /**
+     * Encode a value as JSON and send an application/json response.
+     *
+     * @throws \JsonException If the value cannot be encoded.
+     * @throws \ValueError If an integer status has no matching StatusCode case.
+     *
+     * @param mixed $object Value to encode with json_encode().
+     * @param StatusCode|int $statusCode Response status, defaulting to 200.
+     * @param int $flags Bitmask of JSON encoding options; JSON_THROW_ON_ERROR is always enabled.
+     * @return StatusCode Status sent with the response.
+     */
+    protected function JsonWithOptions(
+        mixed $object,
+        StatusCode|int $statusCode = StatusCode::Ok,
+        int $flags = 0,
+    ): StatusCode
+    {
         return $this->Content(
             type: 'application/json', 
-            content: json_encode(value: $object),
+            content: json_encode(value: $object, flags: $flags | JSON_THROW_ON_ERROR),
             statusCode: $statusCode,
         );
     }
 
     /**
-     * Loads a file and prints it to the stream.
-     * Calls NotFound if the file can't be found
-     * @param string $file_path
-     * @param bool $additional_headers
-     * @param StatusCode|int $statusCode The status code to return (200 by default)
-     * @return StatusCode
+     * Read a file and send its contents, or return a not-found response.
+     *
+     * The entire file is loaded into memory. The MIME type is detected with fileinfo.
+     * @throws \ValueError If an integer status has no matching StatusCode case.
+     *
+     * @param string $file_path Path to the file to read; use a trusted, readable file path.
+     * @param bool $additional_headers Whether to add attachment and Last-Modified headers.
+     * @param StatusCode|int $statusCode Response status for an existing file, defaulting to 200.
+     * @return StatusCode Response status, or NotFound if the path does not exist.
      */
     protected function File(
         string $file_path, 
@@ -335,11 +431,19 @@ class Controller {
         );
     }
 
+    /**
+     * Send a not-found response using Shared/Error when available.
+     *
+     * Falls back to plain text when the error view is absent.
+     *
+     * @param string|null $message Custom error banner; null selects the default message.
+     * @return StatusCode Error response status (normally 404).
+     */
     protected function NotFound(?string $message = null): StatusCode
     {
-        define(constant_name: 'ERROR_LAYOUT', value: 'Shared/Error');
+        $errorLayout = 'Shared/Error';
 
-        if ($this->ViewFileName(viewName: ERROR_LAYOUT) === null)
+        if ($this->ViewFileName(viewName: $errorLayout) === null)
         {
             // View file not avaible
             return $this->Content(
@@ -350,7 +454,7 @@ class Controller {
         }
 
         return $this->Render(
-            view: ERROR_LAYOUT,
+            view: $errorLayout,
             title: 'Error 404',
             data: [
                 'main_banner' => empty($message) ? 
@@ -361,7 +465,19 @@ class Controller {
         );
     }
 
+    /**
+     * Send a unauthorized response using Shared/Error when available.
+     *
+     * Falls back to plain text when the error view is absent.
+     *
+     * @param string|null $message Custom error banner; null selects the default message.
+     * @return StatusCode Error response status (normally 401).
+     */
     protected function NotAuthorized(?string $message = null): StatusCode {
+        if ($this->ViewFileName('Shared/Error') === null) {
+            return $this->Content('text/plain', $message ?? 'You are not authorized to view this resource', StatusCode::NotAuthorized);
+        }
+
         return $this->Render(
             view: 'Shared/Error',
             title: 'Error 401',
@@ -374,7 +490,19 @@ class Controller {
         );
     }
 
+    /**
+     * Send a bad-request response using Shared/Error when available.
+     *
+     * Falls back to plain text when the error view is absent.
+     *
+     * @param string|null $message Custom error banner; null selects the default message.
+     * @return StatusCode Error response status (normally 400).
+     */
     protected function BadRequest(?string $message = null): StatusCode {
+        if ($this->ViewFileName('Shared/Error') === null) {
+            return $this->Content('text/plain', $message ?? 'There was a problem in your request', StatusCode::BadRequest);
+        }
+
         return $this->Render(
             view: 'Shared/Error',
             title: 'Error 400',
@@ -387,6 +515,16 @@ class Controller {
         );
     }
 
+    /**
+     * Send a server-error response, optionally using Shared/Error.
+     *
+     * Falls back to plain text when rendering is disabled or the error view is absent.
+     * Exception messages may contain sensitive details; control their exposure in production.
+     *
+     * @param \Throwable|null $ex Exception exposed to the error view; its message becomes the banner.
+     * @param bool $render_error Whether to use the error view if it exists.
+     * @return StatusCode ServerError (500).
+     */
     protected function InternalError(
         ?\Throwable $ex = null,
         bool $render_error = true,
@@ -395,7 +533,7 @@ class Controller {
                         'The server encountered an unexpected error' :
                         $ex->getMessage();
         
-        if ($render_error)
+        if ($render_error && $this->ViewFileName('Shared/Error') !== null)
         {
             return $this->Render(
                 view: 'Shared/Error',

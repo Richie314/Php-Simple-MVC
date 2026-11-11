@@ -40,6 +40,16 @@ class Router {
      */
     protected ?string $ApplicationInstallationPath;
 
+    /**
+     * Create a router for the current HTTP request.
+     *
+     * @throws \BadMethodCallException If REQUEST_METHOD is missing from $_SERVER.
+     * @throws \InvalidArgumentException If a nonempty prefix does not start with /.
+     * @throws \ValueError If the HTTP method has no matching Method case.
+     *
+     * @param string $pathPrefix Application URL prefix, empty or beginning with /; no slash normalization is performed.
+     * @param string|null $applicationInstallationPath App directory passed to dispatched controllers; null uses their default.
+     */
     public function __construct(
         string $pathPrefix = '',
         ?string $applicationInstallationPath = null,
@@ -64,6 +74,16 @@ class Router {
         $this->ApplicationInstallationPath = $applicationInstallationPath;
     }
 
+    /**
+     * Register an exact route path for a controller action.
+     *
+     * The application prefix is prepended verbatim. Re-registering a path replaces it.
+     *
+     * @param string $route Route path beginning with /, without the application prefix.
+     * @param class-string<Controller> $controller Controller class to instantiate when dispatched.
+     * @param string $action Public action method name.
+     * @return void
+     */
     public function AddRouteAction(
         string $route, 
         string $controller, 
@@ -75,6 +95,17 @@ class Router {
         ];
     }
 
+    /**
+     * Register public controller methods and map the base route to index().
+     *
+     * Methods beginning with _ or # are skipped. The controller is instantiated
+     * during registration, so its constructor must accept requestPath and requestMethod.
+     * @throws \Exception If the constructed object is not a Controller.
+     *
+     * @param class-string<Controller> $controller Controller class with a compatible constructor.
+     * @param string $route_base Base route, for example /account or /; a missing leading slash is added.
+     * @return void
+     */
     public function AddController(
         string $controller,
         string $route_base,
@@ -116,6 +147,14 @@ class Router {
         );
     }
 
+    /**
+     * Build named action arguments from GET query strings or POST form fields.
+     *
+     * Other HTTP methods produce an empty argument array; JSON bodies are not parsed.
+     *
+     * @param string $uri Request URI whose query string is used for GET requests.
+     * @return array<array-key, mixed> Parsed fields with hyphens in their names changed to underscores.
+     */
     private function ParseParameters(string $uri): array
     {
         $method_params = [];
@@ -144,6 +183,18 @@ class Router {
         return $filtered_parameters;
     }
 
+    /**
+     * Dispatch an exact URI path, run action attributes, and return the action status.
+     *
+     * GET/POST fields are passed as named action arguments. Action and attribute
+     * failures are rendered as server errors when response headers remain writable.
+     * Actions must return a StatusCode or an integer matching a StatusCode case.
+     * @throws \Exception If no usable path can be extracted from the URI.
+     * @throws \Throwable If an action fails after headers are sent, or error handling fails.
+     *
+     * @param string $uri Request URI including its path and optional query string.
+     * @return StatusCode Action status, NotFound for unmatched routes, or a handled error status.
+     */
     public function Dispatch(string $uri): StatusCode
     {
         $path = parse_url(url: $uri, component: PHP_URL_PATH);
@@ -156,35 +207,36 @@ class Router {
         if (!array_key_exists(key: $path, array: $this->routes)) {
             $controller = ErrorController::class;
             $action = 'NotFoundHandler';
+            $method_params = [];
         } else {
             $controller = $this->routes[$path]['controller'];
             $action = $this->routes[$path]['action'];
         }
 
-        $controller_instance = new $controller(
-            requestPath: $uri,
-            requestMethod: $this->RequestMethod,
-
-            pathPrefix: $this->PathPrefix,
-            applicationInstallationPath: $this->ApplicationInstallationPath,
-
-            connection: $this->connection, 
-            user: $this->user,
-
-            defaultViewBag: $this->defaultViewBag,
-        );
-
-        $method_attributes = \ReflectionMethod::createFromMethodName(method: "$controller::$action")
-            ->getAttributes(
-                name: Attribute::class, 
-                flags: \ReflectionAttribute::IS_INSTANCEOF,
-            );
-        foreach ($method_attributes as $attribute)
-        {
-            $attribute->newInstance()->DoWork($controller_instance, $action, $method_params);
-        }
-
         try {
+            $controller_instance = new $controller(
+                requestPath: $uri,
+                requestMethod: $this->RequestMethod,
+
+                pathPrefix: $this->PathPrefix,
+                applicationInstallationPath: $this->ApplicationInstallationPath,
+
+                connection: $this->connection,
+                user: $this->user,
+
+                defaultViewBag: $this->defaultViewBag,
+            );
+
+            $method_attributes = (new \ReflectionMethod($controller, $action))
+                ->getAttributes(
+                    name: Attribute::class,
+                    flags: \ReflectionAttribute::IS_INSTANCEOF,
+                );
+            foreach ($method_attributes as $attribute)
+            {
+                $attribute->newInstance()->DoWork($controller_instance, $action, $method_params);
+            }
+
             $status_code = call_user_func_array(
                 callback: [$controller_instance, $action], 
                 args: $method_params,
@@ -213,16 +265,38 @@ class Router {
         }
     }
 
+    /**
+     * Store a database connection and configure its character set as utf8mb4.
+     *
+     * The connection remains stored even if setting the character set fails.
+     * @throws \mysqli_sql_exception If mysqli is configured to throw on database errors.
+     *
+     * @param \mysqli $connection Connection shared with subsequently dispatched controllers.
+     * @return bool Whether setting the character set succeeded.
+     */
     public function SetDbConnection(\mysqli $connection): bool {
         $this->connection = $connection;
         return 
             $this->connection->set_charset(charset: "utf8mb4");
     }
 
+    /**
+     * Set the authenticated user for subsequently dispatched controllers.
+     *
+     * @param User $user Application user supplied to each controller.
+     * @return void
+     */
     public function SetUser(User $user): void {
         $this->user = $user;
     }
 
+    /**
+     * Set or replace a default variable for controller views.
+     *
+     * @param string $key Variable name; an empty name is ignored.
+     * @param mixed $value Value passed through the controller ViewBag.
+     * @return void
+     */
     public function SetDefaultVariable(string $key, mixed $value): void
     {
         if (strlen(string: $key) === 0)
@@ -231,6 +305,12 @@ class Router {
         $this->defaultViewBag[$key] = $value;
     }
 
+    /**
+     * Remove a default view variable, if present.
+     *
+     * @param string $key Variable name; empty or unknown names are ignored.
+     * @return void
+     */
     public function ClearDefaultVariable(string $key): void
     {
         if (strlen(string: $key) === 0)

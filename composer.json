@@ -21,13 +21,17 @@
         }
     ],
     "minimum-stability": "stable",
-    "require": {},
+    "require": {
+        "php": ">=8.2"
+    },
     
     "archive": {
         "exclude": [
             "/demo",
             "/tests",
-            ".vscode"
+            ".vscode",
+            ".github",
+            "/docs"
         ]
     }
 }

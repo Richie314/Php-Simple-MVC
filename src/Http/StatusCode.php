@@ -7,8 +7,13 @@ namespace Richie314\SimpleMvc\Http;
 enum StatusCode : int
 {
     case Ok = 200;
+    case Created = 201;
+    case Accepted = 202;
+    case NoContent = 204;
     
     case MovedPermanently = 301;
+    case Found = 302;
+    case SeeOther = 303;
     case NotModified = 304;
     case TemporaryRedirect = 307;
     case PermanentRedirect = 308;
@@ -30,9 +35,10 @@ enum StatusCode : int
     case ServiceUnavaible = 503;   
 
     /**
-     * Checks if the status code is in the 4xx or 5xx range
-     * @param StatusCode|int $statusCode The number to check
-     * @return bool true if the number is in the 4xx or 5xx range
+     * Check whether a status code belongs to the 4xx or 5xx range.
+     *
+     * @param StatusCode|int $statusCode Enum case or integer HTTP status to inspect.
+     * @return bool True for values from 400 through 599, inclusive.
      */
     public static function IsError(StatusCode|int $statusCode): bool
     {

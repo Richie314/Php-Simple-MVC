@@ -6,6 +6,8 @@ namespace Richie314\SimpleMvc\Http;
 
 enum Method : string
 {
+    case Options = 'OPTIONS';
+    case Patch = 'PATCH';
     case Post = 'POST';
     case Get = 'GET';
     case Put = 'PUT';

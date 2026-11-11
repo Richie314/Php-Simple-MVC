@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="112" viewBox="0 0 680 112" role="img" aria-labelledby="title desc">
+  <title id="title">From request to response</title>
+  <desc id="desc">An HTTP request passes through the router and a controller action to produce an HTML, JSON, or file response.</desc>
+  <rect x="1" y="1" width="678" height="110" rx="16" fill="#f6f8fc" stroke="#dbe1ed"/>
+  <g fill="none" stroke="#65718a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M144 48H176M169 42L176 48L169 54"/>
+    <path d="M304 48H336M329 42L336 48L329 54"/>
+    <path d="M464 48H496M489 42L496 48L489 54"/>
+  </g>
+  <rect x="24" y="26" width="120" height="44" rx="10" fill="#e6ebf5"/>
+  <rect x="184" y="26" width="120" height="44" rx="10" fill="#e7e5ff"/>
+  <rect x="344" y="26" width="120" height="44" rx="10" fill="#d8f4ed"/>
+  <rect x="504" y="26" width="152" height="44" rx="10" fill="#fff0d8"/>
+  <g fill="#20283e" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" text-anchor="middle">
+    <text x="84" y="53">Request</text>
+    <text x="244" y="53">Router</text>
+    <text x="404" y="53">Controller</text>
+    <text x="580" y="53">Response</text>
+  </g>
+  <g fill="#526078" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle">
+    <text x="84" y="91">HTTP</text>
+    <text x="244" y="91">Exact route matching</text>
+    <text x="404" y="91">Action + attributes</text>
+    <text x="580" y="91">HTML · JSON · Files</text>
+  </g>
+</svg>
