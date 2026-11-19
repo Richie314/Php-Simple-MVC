@@ -119,11 +119,11 @@ try {
     unset($_SERVER['HTTP_CLIENT_IP'], $_SERVER['HTTP_X_FORWARDED_FOR']);
     check(Security::GetIpAddress() === '127.0.0.1', 'CLI IP lookup');
     $_SERVER['HTTP_CF_CONNECTING_IP'] = '192.0.2.1';
-    check(Security::GetIpAddress(true) === '192.0.2.1', 'Cloudflare header lookup');
+    check(Security::GetIpAddress(allowCloudFlare: true) === '192.0.2.1', 'Cloudflare header lookup');
     foreach (['', '0', 'secret\n'] as $value) {
         file_put_contents($root . '/secret', $value);
         $_ENV['TEST_SECRET_FILE'] = $root . '/secret';
-        check(Security::LoadEnvironmentOfFromFile('TEST_SECRET', 'fallback') === $value, 'Secret file content');
+        check(Security::LoadEnvironmentOrFromFile('TEST_SECRET', 'fallback') === $value, 'Secret file content');
     }
     // Exact routing under a prefix and replacement of an explicitly registered route.
     $_SERVER['REQUEST_METHOD'] = 'GET';
@@ -197,9 +197,9 @@ try {
     }
     check(File::UploadingFiles('attachments') === [$upload, $failedUpload], 'Multiple uploads retain error records');
     unset($_ENV['UNSET_TEST_VALUE'], $_ENV['UNSET_TEST_VALUE_FILE']);
-    check(Security::LoadEnvironmentOfFromFile('UNSET_TEST_VALUE', 'fallback') === 'fallback', 'Missing environment fallback');
+    check(Security::LoadEnvironmentOrFromFile('UNSET_TEST_VALUE', 'fallback') === 'fallback', 'Missing environment fallback');
     $_ENV['TEST_SECRET'] = 'direct';
-    check(Security::LoadEnvironmentOfFromFile('TEST_SECRET') === 'direct', 'Environment precedence');
+    check(Security::LoadEnvironmentOrFromFile('TEST_SECRET') === 'direct', 'Environment precedence');
 } finally {
     foreach (['/Views/Home/index.php', '/Views/Shared/Layout.php', '/Views/Shared/Error.php', '/secret'] as $path) {
         if (is_file($root . $path)) unlink($root . $path);

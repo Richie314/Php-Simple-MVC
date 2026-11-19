@@ -158,7 +158,7 @@ $matches = Security::TestPassword('a password', $hash);
 
 // Reads $_ENV['DB_PASSWORD'], otherwise the file in $_ENV['DB_PASSWORD_FILE'].
 // File contents are returned verbatim, including empty strings and trailing newlines.
-$password = Security::LoadEnvironmentOfFromFile('DB_PASSWORD', 'fallback');
+$password = Security::LoadEnvironmentOrFromFile('DB_PASSWORD', 'fallback');
 
 Cookie::SetWithOptions('session_hint', 'value', 3600, path: '/myapp', secure: true, sameSite: 'Lax');
 $value = Cookie::Get('session_hint'); // null when absent
@@ -167,7 +167,7 @@ Cookie::DeleteWithOptions('session_hint', path: '/myapp'); // match the original
 
 `SetWithOptions()` and `DeleteWithOptions()` preserve existing cookie method signatures, including subclass overrides. Cookie security options are opt-in: existing calls retain `secure: false`, `httpOnly: true`, and no SameSite setting. Cookies must be written before response output. Cookie reads reflect the incoming request, not cookies just written to response headers.
 
-`Security::GetIpAddress()` retains its existing proxy-header precedence. Enable `allowCloudlfare: true` only behind a trusted Cloudflare proxy. Forwarded headers must be sanitized by your infrastructure before using these addresses for access control.
+`Security::GetIpAddress()` retains its existing proxy-header precedence. Enable `allowCloudFlare: true` only behind a trusted Cloudflare proxy. Forwarded headers must be sanitized by your infrastructure before using these addresses for access control.
 
 ## Webserver configuration
 

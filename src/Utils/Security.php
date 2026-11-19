@@ -38,17 +38,17 @@ class Security
      * HTTP_X_FORWARDED_FOR, then REMOTE_ADDR. Forwarded values are not validated or
      * split into individual addresses. Trust them only behind sanitized proxy headers.
      *
-     * @param bool $allowCloudlfare Whether to prefer CF-Connecting-IP; parameter spelling retained for compatibility.
+     * @param bool $allowCloudFlare Whether to prefer CF-Connecting-IP.
      * @return string Selected header or REMOTE_ADDR, or an empty string when unavailable.
      */
-    public static function GetIpAddress(bool $allowCloudlfare = false): string {
+    public static function GetIpAddress(bool $allowCloudFlare = false): string {
         
         $headers = function_exists('getallheaders') ? getallheaders() : [];
         $headers = array_change_key_case($headers, CASE_LOWER);
         if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
             $headers['cf-connecting-ip'] = $_SERVER['HTTP_CF_CONNECTING_IP'];
         }
-        if ($allowCloudlfare && array_key_exists(key: 'cf-connecting-ip', array: $headers)) {
+        if ($allowCloudFlare && array_key_exists(key: 'cf-connecting-ip', array: $headers)) {
             // Cloudflare tunnel forwarding
             return $headers['cf-connecting-ip'];
         }
@@ -75,7 +75,7 @@ class Security
      * @param string|null $default Fallback when neither a direct value nor readable file content is available.
      * @return string|null Direct value, verbatim file contents, or the fallback.
      */
-    public static function LoadEnvironmentOfFromFile(string $var, ?string $default = null): ?string
+    public static function LoadEnvironmentOrFromFile(string $var, ?string $default = null): ?string
     {
         if (empty($var)) {
             throw new \Exception(
